@@ -21,5 +21,7 @@ $ pipenv shell
 To run the script, re-generate the file, and serve it, run:
 
 ```
+$ pipenv shell
+
 $ python mlir-dialects.py serve
 ```

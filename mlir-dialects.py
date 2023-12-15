@@ -1,9 +1,10 @@
 import argparse
+import matplotlib.pyplot as plt
 import os
 import subprocess
 import sys
 
-from livereload import Server, shell
+from livereload import Server
 from pathlib import Path
 
 
@@ -86,7 +87,7 @@ def count():
         "x86vector",
         "spirv",
         "tosa",
-        "transform",
+        "transform"
     ]
     matches = {repo: {dialect: 0 for dialect in dialects} for repo in repositories}
     cache_dir = str(Path.home() / ".cache" / "mlir-dialects")
@@ -96,7 +97,6 @@ def count():
             current_matches = count_grep_matches(cache_dir, dialect)
             if current_matches is not None:
                 matches[repo_url][dialect] = current_matches
-    print(matches)
     return matches
 
 
@@ -109,11 +109,24 @@ def generate_html(matches: dict):
         <h1>MLIR Dialect Usage Estimates</h1>
         <div>
         This page shows estimates for the usage of MLIR dialect operations in various repositories.
+
+        Zero counts are hidden from the plots.
         </div>
         """
     for repo in matches:
-        html += f"<h2>{repo}</th>"
-        html += f"{matches[repo]}"
+        repo_name = repo_name_from_url(repo)
+        repo_matches = matches[repo]
+        sorted_matches = sorted(repo_matches.items(), key=lambda x: x[1], reverse=False)
+        sorted_matches = [x for x in sorted_matches if x[1] > 0]
+
+        (w, h) = (6, 6)
+        fig, ax = plt.subplots(figsize=(w, h))
+        fig.subplots_adjust(left=0.3)
+        ax.set_title(repo_name)
+        ax.barh([x[0] for x in sorted_matches], [x[1] for x in sorted_matches])
+        fig.savefig(os.path.join("_public", f"{repo_name}.png"))
+        html += f"<center><img src='{repo_name}.png' /></center>\n"
+        # html += f"<code>\n{repo_matches}\n</code>\n"
     html += """
         </body>
         </html>
@@ -138,7 +151,7 @@ def spawn_html_write():
     process = subprocess.Popen(args, stdout=subprocess.PIPE)
     if process.stdout is None:
         raise Exception("Failed to spawn process.")
-    for line in iter(process.stdout.readline, b""):
+    for line in iter(process.stdout.readline, b''):
         sys.stdout.buffer.write(line)
         sys.stdout.flush()
 
@@ -152,9 +165,7 @@ def serve():
 
 def main():
     parser = argparse.ArgumentParser(description="Estimate the MLIR dialect usage.")
-    parser.add_argument(
-        "mode", type=str, help="The mode to run. Can be 'count|html|serve'."
-    )
+    parser.add_argument("mode", type=str, help="The mode to run. Can be 'count|html|serve'.")
     args = parser.parse_args()
 
     if args.mode == "count":
