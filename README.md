@@ -11,7 +11,7 @@ $ pip install --user pipenv
 Next, install the dependencies and activate the shell:
 
 ```
-$ pipenv install --dev
+$ pipenv install
 
 $ pipenv shell
 ```

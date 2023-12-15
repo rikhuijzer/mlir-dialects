@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  schedule:
+    # Every 22th day of the month at 03:30.
+    - cron: '30 03 22 * *'
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  Deploy:
+    name: Deploy
+    permissions:
+      contents: write
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - run: pipenv install
+
+      - run: pipenv run python mlir-dialects.py html
+
+      - run: echo "mlir-dialects.huijzer.xyz" > _public/CNAME
+
+      - uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          branch: gh-pages
+          single-commit: true
+          folder: _public
