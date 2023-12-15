@@ -15,3 +15,11 @@ $ pipenv install --dev
 
 $ pipenv shell
 ```
+
+## Serve
+
+To run the script, re-generate the file, and serve it, run:
+
+```
+$ python mlir-dialects.py serve
+```
