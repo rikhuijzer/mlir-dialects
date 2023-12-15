@@ -1,5 +1,7 @@
 # mlir-dialects
 
+Estimates for the usage of MLIR dialects for various repositories, see <https://mlir-dialects.huijzer.xyz/>.
+
 ## Setup
 
 This project uses `pipenv`, which can be installed via:

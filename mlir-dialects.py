@@ -153,6 +153,10 @@ def generate_html(matches: dict):
         </pre>
         where <code>some_dialect</code> is the dialect operation to count.
         Zero counts are hidden from the plots.
+        The source code for this page is available at
+        <a href="https://github.com/rikhuijzer/mlir-dialects">
+            https://github.com/rikhuijzer/mlir-dialects
+        </a>.
         </div>
         """
     for repo_url in matches:
@@ -207,6 +211,7 @@ def spawn_html_write():
 
 def serve():
     server = Server()
+    spawn_html_write()
     # Going via a subprocess to run the latest version of the code.
     server.watch("*.py", spawn_html_write)
     server.serve(root="_public")
