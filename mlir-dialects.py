@@ -1,4 +1,5 @@
 import argparse
+from threading import local
 import matplotlib.pyplot as plt
 import os
 import subprocess
@@ -11,14 +12,14 @@ from pathlib import Path
 def repo_name_from_url(git_url: str):
     """Extract the repository name from a git URL."""
     repo_name = git_url.split("/")[-1]
-    assert repo_name.endswith(".git")
-    repo_name = repo_name[:-4]
+    assert not repo_name.endswith(".git")
     return repo_name
 
 
-def clone_or_update_repo(git_url: str, cache_dir: str):
+def clone_or_update_repo(repo_url: str, cache_dir: str):
     """Clone or update a git repository."""
-    repo_name = repo_name_from_url(git_url)
+    repo_name = repo_name_from_url(repo_url)
+    git_url = repo_url + ".git"
 
     local_repo_path = os.path.join(cache_dir, repo_name)
 
@@ -30,6 +31,7 @@ def clone_or_update_repo(git_url: str, cache_dir: str):
         subprocess.run(
             ["git", "clone", "--depth", "1", git_url, local_repo_path], check=True
         )
+    return local_repo_path
 
 
 def count_grep_matches(repo_dir: str, dialect: str):
@@ -45,7 +47,10 @@ def count_grep_matches(repo_dir: str, dialect: str):
 def count():
     print("Counting...")
     repositories = [
-        "https://github.com/llvm/torch-mlir.git",
+        "https://github.com/llvm/torch-mlir",
+        "https://github.com/microsoft/Accera",
+        "https://github.com/openai/triton",
+        "https://github.com/llvm/circt"
     ]
     dialects = [
         "acc",
@@ -92,9 +97,9 @@ def count():
     matches = {repo: {dialect: 0 for dialect in dialects} for repo in repositories}
     cache_dir = str(Path.home() / ".cache" / "mlir-dialects")
     for repo_url in repositories:
-        clone_or_update_repo(repo_url, cache_dir)
+        local_repo_path = clone_or_update_repo(repo_url, cache_dir)
         for dialect in dialects:
-            current_matches = count_grep_matches(cache_dir, dialect)
+            current_matches = count_grep_matches(local_repo_path, dialect)
             if current_matches is not None:
                 matches[repo_url][dialect] = current_matches
     return matches
@@ -104,30 +109,52 @@ def generate_html(matches: dict):
     html = """
         <html>
         <head>
+        <style>
+        .content {
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+            margin-top: 50px;
+        }
+        .center {
+            text-align: center;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        h2 {
+            margin-top: 60px;
+            margin-bottom: 5px;
+        }
+        </style>
         </head>
         <body>
-        <h1>MLIR Dialect Usage Estimates</h1>
+        <div class="content">
+        <h1 class="center">MLIR Dialect Usage Estimates</h1>
         <div>
-        This page shows estimates for the usage of MLIR dialect operations in various repositories.
-
+        This page shows estimates for the usage of MLIR dialect operations in various repositories.<br>
+        <br>
         Zero counts are hidden from the plots.
         </div>
         """
-    for repo in matches:
-        repo_name = repo_name_from_url(repo)
-        repo_matches = matches[repo]
-        sorted_matches = sorted(repo_matches.items(), key=lambda x: x[1], reverse=False)
+    for repo_url in matches:
+        repo_name = repo_name_from_url(repo_url)
+        print(f"Generating plot for: {repo_name}")
+        repo_matches = matches[repo_url]
+        sorted_matches = sorted(repo_matches.items(), key=lambda x: x[1], reverse=True)
         sorted_matches = [x for x in sorted_matches if x[1] > 0]
 
         (w, h) = (6, 6)
         fig, ax = plt.subplots(figsize=(w, h))
-        fig.subplots_adjust(left=0.3)
-        ax.set_title(repo_name)
-        ax.barh([x[0] for x in sorted_matches], [x[1] for x in sorted_matches])
+        fig.subplots_adjust(top=0.98)
+        ax.bar([x[0] for x in sorted_matches], [x[1] for x in sorted_matches])
+        plt.xticks(rotation=30, ha="right")
         fig.savefig(os.path.join("_public", f"{repo_name}.png"))
+        repo_ref = f"<a href='{repo_url}'>{repo_name}</a>"
+        html += f"<center><h2>{repo_ref}</span></h2></center>"
         html += f"<center><img src='{repo_name}.png' /></center>\n"
         # html += f"<code>\n{repo_matches}\n</code>\n"
     html += """
+        </div>
         </body>
         </html>
         """
