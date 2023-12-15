@@ -23,6 +23,8 @@ jobs:
         with:
           persist-credentials: false
 
+      - run: apt-get install ripgrep
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
