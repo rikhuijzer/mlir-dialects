@@ -47,10 +47,15 @@ def count_grep_matches(repo_dir: str, dialect: str):
 def count():
     print("Counting...")
     repositories = [
+        "https://github.com/google/iree",
+        "https://github.com/openxla/xla",
         "https://github.com/llvm/torch-mlir",
-        "https://github.com/microsoft/Accera",
         "https://github.com/openai/triton",
-        "https://github.com/llvm/circt"
+        "https://github.com/Xilinx/mlir-aie",
+        "https://github.com/onnx/onnx-mlir",
+        "https://github.com/llvm/Polygeist",
+        "https://github.com/llvm/circt",
+        "https://github.com/microsoft/Accera",
     ]
     dialects = [
         "acc",
@@ -92,7 +97,7 @@ def count():
         "x86vector",
         "spirv",
         "tosa",
-        "transform"
+        "transform",
     ]
     matches = {repo: {dialect: 0 for dialect in dialects} for repo in repositories}
     cache_dir = str(Path.home() / ".cache" / "mlir-dialects")
@@ -131,8 +136,20 @@ def generate_html(matches: dict):
         <div class="content">
         <h1 class="center">MLIR Dialect Usage Estimates</h1>
         <div>
-        This page shows estimates for the usage of MLIR dialect operations in various repositories.<br>
+        This page shows estimates for the usage of MLIR dialect operations for various repositories:<br>
+        <ul>
+        """
+    for repo_url in matches:
+        html += f"<li><a href='{repo_url}'>{repo_name_from_url(repo_url)}</a></li>\n"
+    html += """
+        </ul>
+        Usage is estimated by counting the number of matches for each dialect operation in the repository.
+        Specifically, the following ripgrep `rg` command is used:<br>
         <br>
+        <pre>
+        rg '= some_dialect.' -g '*.mlir' repo_dir
+        </pre>
+        where <code>some_dialect</code> is the dialect operation to count.
         Zero counts are hidden from the plots.
         </div>
         """
@@ -143,8 +160,10 @@ def generate_html(matches: dict):
         sorted_matches = sorted(repo_matches.items(), key=lambda x: x[1], reverse=True)
         sorted_matches = [x for x in sorted_matches if x[1] > 0]
 
-        (w, h) = (6, 6)
+        (w, h) = (9, 6)
         fig, ax = plt.subplots(figsize=(w, h))
+        fig.subplots_adjust(left=0.06)
+        fig.subplots_adjust(right=0.88)
         fig.subplots_adjust(top=0.98)
         ax.bar([x[0] for x in sorted_matches], [x[1] for x in sorted_matches])
         plt.xticks(rotation=30, ha="right")
@@ -178,7 +197,7 @@ def spawn_html_write():
     process = subprocess.Popen(args, stdout=subprocess.PIPE)
     if process.stdout is None:
         raise Exception("Failed to spawn process.")
-    for line in iter(process.stdout.readline, b''):
+    for line in iter(process.stdout.readline, b""):
         sys.stdout.buffer.write(line)
         sys.stdout.flush()
 
@@ -192,7 +211,9 @@ def serve():
 
 def main():
     parser = argparse.ArgumentParser(description="Estimate the MLIR dialect usage.")
-    parser.add_argument("mode", type=str, help="The mode to run. Can be 'count|html|serve'.")
+    parser.add_argument(
+        "mode", type=str, help="The mode to run. Can be 'count|html|serve'."
+    )
     args = parser.parse_args()
 
     if args.mode == "count":
