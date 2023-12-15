@@ -187,8 +187,8 @@ def write_html():
     matches = count()
     root_dir = Path(__file__).parent.resolve()
     output_path = os.path.join(root_dir, "_public", "index.html")
-    html = generate_html(matches)
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    html = generate_html(matches)
     with open(output_path, "w") as f:
         f.write(html)
     print("Wrote HTML to: " + output_path)

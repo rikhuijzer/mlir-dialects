@@ -23,9 +23,13 @@ jobs:
         with:
           persist-credentials: false
 
+      - run: sudo apt-get install ripgrep
+
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
+
+      - run: pip install --user pipenv
 
       - run: pipenv install
 
@@ -34,6 +38,7 @@ jobs:
       - run: echo "mlir-dialects.huijzer.xyz" > _public/CNAME
 
       - uses: JamesIves/github-pages-deploy-action@v4
+        if: ${{ github.ref == 'refs/heads/main' }}
         with:
           branch: gh-pages
           single-commit: true
