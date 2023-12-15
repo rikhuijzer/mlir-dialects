@@ -48,6 +48,7 @@ def count():
     print("Counting...")
     repositories = [
         "https://github.com/google/iree",
+        "https://github.com/tensorflow/tensorflow",
         "https://github.com/openxla/xla",
         "https://github.com/llvm/torch-mlir",
         "https://github.com/openai/triton",
@@ -127,7 +128,7 @@ def generate_html(matches: dict):
             margin-right: auto;
         }
         h2 {
-            margin-top: 60px;
+            margin-top: 90px;
             margin-bottom: 5px;
         }
         </style>
@@ -140,7 +141,8 @@ def generate_html(matches: dict):
         <ul>
         """
     for repo_url in matches:
-        html += f"<li><a href='{repo_url}'>{repo_name_from_url(repo_url)}</a></li>\n"
+        repo_name = repo_name_from_url(repo_url)
+        html += f"<li><a href='#{repo_name}'>{repo_name}</a></li>\n"
     html += """
         </ul>
         Usage is estimated by counting the number of matches for each dialect operation in the repository.
@@ -168,8 +170,9 @@ def generate_html(matches: dict):
         ax.bar([x[0] for x in sorted_matches], [x[1] for x in sorted_matches])
         plt.xticks(rotation=30, ha="right")
         fig.savefig(os.path.join("_public", f"{repo_name}.png"))
-        repo_ref = f"<a href='{repo_url}'>{repo_name}</a>"
-        html += f"<center><h2>{repo_ref}</span></h2></center>"
+        html += f"<a id='{repo_name}'></a>\n"
+        html += f"<center><h2>{repo_name}</span></h2></center>"
+        html += f"<center><a href='{repo_url}'>{repo_url}</a></center>"
         html += f"<center><img src='{repo_name}.png' /></center>\n"
         # html += f"<code>\n{repo_matches}\n</code>\n"
     html += """
