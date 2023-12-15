@@ -27,6 +27,8 @@ jobs:
         with:
           python-version: '3.11'
 
+      - run: pip install --user pipenv
+
       - run: pipenv install
 
       - run: pipenv run python mlir-dialects.py html
