@@ -49,12 +49,63 @@ def clone_or_update_repo(repo: Repo, cache_dir: str, update: bool):
     return local_repo_path
 
 
+def glob(search_dir: str) -> str:
+    if search_dir.endswith("flang"):
+        return "*.fir"
+    else:
+        return "*.mlir"
+
+
+def dialect_pattern() -> str:
+    """Return the regex pattern to find dialects."""
+    return "[ ]*//[ ]*[^:]+: [ ]*[^%]*%[a-zA-Z0-9_]+ = \"?[^.]*\\."
+
+
+def dialect_pattern_post_process(text: str) -> str:
+    dialect_start = text.find("= ")
+    last_char = text.find(".", dialect_start)
+    dialect = text[dialect_start + 2 : last_char]
+    dialect = dialect.replace('"', '')
+    if " " in dialect:
+        return ""
+    return dialect
+
+
+def test_dialect_pattern(text: str, expected: str):
+    pattern = dialect_pattern()
+    args = ["rg", "--only-matching", pattern]
+    process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    stdout, _ = process.communicate(input=text)
+    dialect = dialect_pattern_post_process(stdout)
+    if dialect != expected:
+        raise Exception(f"Expected '{expected}' but got '{dialect}'")
+
+
+test_dialect_pattern("  // CHECK: %space_name = test.string_attr_pretty_name attributes", "test")
+test_dialect_pattern("// CHECK: %1 = \"foo.bar\"", "foo")
+test_dialect_pattern("emitc.call_opaque \"f\"() \\{args = baz.bar\\}", "")
+test_dialect_pattern("// CHECK-COUNT-2: vector.mask %{{.*}} { vector.outerproduct %{{.*}}, %{{.*}}, %{{.*}} {kind = #vector.kind<add>} : vector<4xf32>, f32 }", "")
+test_dialect_pattern("// Case 2.b. %b432 = insert [0] == [0,.,.] but internal transpose.", "")
+
+
+def find_dialects(search_dir: str):
+    """Find all dialects in the repository."""
+    pattern = dialect_pattern()
+    args = ["rg", "--no-filename", pattern, "-g", glob(search_dir), search_dir]
+    result = subprocess.run(args, capture_output=True, text=True)
+    output = result.stdout
+    dialects = set()
+    for line in output.split("\n"):
+        dialect = dialect_pattern_post_process(line)
+        if line != "":
+            if dialect != "" and dialect != "test":
+                dialects.add(dialect)
+    return dialects
+
+
 def count_grep_matches(search_dir: str, dialect: str):
     pattern = f"= \"?{dialect}\\."
-    glob = "*.mlir"
-    if search_dir.endswith("flang"):
-        glob = "*.fir"
-    args = ["rg", "-q", "--stats", pattern, "-g", glob, search_dir]
+    args = ["rg", "-q", "--stats", pattern, "-g", glob(search_dir), search_dir]
     result = subprocess.run(args, capture_output=True, text=True)
     output = result.stdout
     for line in output.split("\n"):
@@ -78,68 +129,20 @@ def count(update: bool):
         Repo("https://github.com/llvm/circt", ""),
         Repo("https://github.com/microsoft/Accera", ""),
     ]
-    dialects = [
-        "acc",
-        "affine",
-        "amdgpu",
-        "amx",
-        "arith",
-        "arm_neon",
-        "arm_sme",
-        "arm_sve",
-        "async",
-        "bufferization",
-        "cf",
-        "chlo", # tensorflow
-        "complex",
-        "dlti",
-        "emitc",
-        "fir",  # flang
-        "gpu",
-        "index",
-        "irdl",
-        "iree_vector_ext", # iree
-        "iree_input", # iree
-        "linalg",
-        "llvm",
-        "math",
-        "memref",
-        "mesh",
-        "mhlo", # tensorflow
-        "ml_program",
-        "nvgpu",
-        "nvvm",
-        "omp",
-        "pdl",
-        "pdl_interp",
-        "quant",
-        "rocdl",
-        "scf",
-        "shape",
-        "sparse_tensor",
-        "spirv",
-        "tensor",
-        "tf", # tensorflow
-        "tm_tensor", # torch-mlir
-        "tosa",
-        "transform",
-        "triton_gpu", # triton
-        "triton_nvidia_gpu", # triton
-        "tt", # triton
-        "ub",
-        "vector",
-        "x86vector",
-    ]
+    dialects = ["arith"]
     matches = {repo: {dialect: 0 for dialect in dialects} for repo in repositories}
     cache_dir = str(Path.home() / ".cache" / "mlir-dialects")
     for i, repo in enumerate(repositories):
         local_repo_path = clone_or_update_repo(repo, cache_dir, update)
+        search_dir = local_repo_path
+        if repo.subdir != "":
+            search_dir = os.path.join(local_repo_path, repo.subdir)
+        dialects = find_dialects(search_dir)
+        print(f"{repo.name()}: dialects: {dialects}")
+        exit(0)
         for dialect in dialects:
             # Only update first few during development.
-            if update or True: # or i < 4:
-                search_dir = local_repo_path
-                if repo.subdir != "":
-                    search_dir = os.path.join(local_repo_path, repo.subdir)
+            if update or i < 4:
                 current_matches = count_grep_matches(search_dir, dialect)
                 if current_matches is not None:
                     matches[repo][dialect] = current_matches
