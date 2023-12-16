@@ -50,7 +50,7 @@ def clone_or_update_repo(repo: Repo, cache_dir: str, update: bool):
 
 
 def count_grep_matches(search_dir: str, dialect: str):
-    pattern = f"= {dialect}\\."
+    pattern = f"= \"?{dialect}\\."
     glob = "*.mlir"
     if search_dir.endswith("flang"):
         glob = "*.fir"
@@ -58,7 +58,7 @@ def count_grep_matches(search_dir: str, dialect: str):
     result = subprocess.run(args, capture_output=True, text=True)
     output = result.stdout
     for line in output.split("\n"):
-        if line.endswith("matches"):
+        if line.endswith("matched lines"):
             return int(line.split()[0])
 
 
@@ -85,11 +85,12 @@ def count(update: bool):
         "amx",
         "arith",
         "arm_neon",
-        "arm_sve",
         "arm_sme",
+        "arm_sve",
         "async",
         "bufferization",
         "cf",
+        "chlo", # tensorflow
         "complex",
         "dlti",
         "emitc",
@@ -97,29 +98,37 @@ def count(update: bool):
         "gpu",
         "index",
         "irdl",
+        "iree_vector_ext", # iree
+        "iree_input", # iree
         "linalg",
         "llvm",
         "math",
         "memref",
         "mesh",
+        "mhlo", # tensorflow
         "ml_program",
         "nvgpu",
         "nvvm",
         "omp",
-        "pdl_interp",
         "pdl",
+        "pdl_interp",
         "quant",
         "rocdl",
         "scf",
         "shape",
         "sparse_tensor",
+        "spirv",
         "tensor",
+        "tf", # tensorflow
+        "tm_tensor", # torch-mlir
+        "tosa",
+        "transform",
+        "triton_gpu", # triton
+        "triton_nvidia_gpu", # triton
+        "tt", # triton
         "ub",
         "vector",
         "x86vector",
-        "spirv",
-        "tosa",
-        "transform",
     ]
     matches = {repo: {dialect: 0 for dialect in dialects} for repo in repositories}
     cache_dir = str(Path.home() / ".cache" / "mlir-dialects")
@@ -127,7 +136,7 @@ def count(update: bool):
         local_repo_path = clone_or_update_repo(repo, cache_dir, update)
         for dialect in dialects:
             # Only update first few during development.
-            if update or i < 3:
+            if update or True: # or i < 4:
                 search_dir = local_repo_path
                 if repo.subdir != "":
                     search_dir = os.path.join(local_repo_path, repo.subdir)
@@ -144,7 +153,7 @@ def generate_html(matches: dict[Repo, dict]):
         <style>
         body {
             font-size: 18px;
-            line-height: 1.1;
+            line-height: 1.3;
         }
         div {
             margin: 0.6em 0;
@@ -207,12 +216,16 @@ def generate_html(matches: dict[Repo, dict]):
         </ul>
         <p>
         Usage is estimated by counting the number of matches for each dialect operation in the repository.
+        This is based on the assumption that a more important dialect is mentioned more often in test and example files.
         Specifically, the following ripgrep `rg` command is used:<br>
         </p>
-        <pre>rg '= some_dialect.' -g '*.mlir' repo_dir</pre>
+        <pre>rg '= "?some_dialect.' -g '*.mlir' repo_dir</pre>
         <p>
-        where <code>some_dialect</code> is the dialect operation to count.
-        Zero counts are hidden from the plots.
+        where <code>some_dialect</code> is the dialect operation to count and <code>repo_dir</code> is the repository directory (plus sub directory for some monorepo's).
+        In words, this greps the repository for the string <code>= some_dialect.</code> or <code>= "some_dialect."</code> in all <code>*.mlir</code> files.
+        Finally, zero counts are hidden from the plots.
+        </p>
+        <p>
         The source code for this page is available at
         <a href="https://github.com/rikhuijzer/mlir-dialects">https://github.com/rikhuijzer/mlir-dialects</a>.
         </p>
@@ -230,8 +243,11 @@ def generate_html(matches: dict[Repo, dict]):
         fig.subplots_adjust(left=0.06)
         fig.subplots_adjust(right=0.88)
         fig.subplots_adjust(top=0.98)
-        ax.bar([x[0] for x in sorted_matches], [x[1] for x in sorted_matches])
-        plt.xticks(rotation=40, ha="right")
+        fig.subplots_adjust(bottom=0.18) # triton_nvidia_gpu
+        labels = [x[0] for x in sorted_matches]
+        valus = [x[1] for x in sorted_matches]
+        ax.bar(labels, valus)
+        plt.xticks(rotation=43, ha="right")
         fig.savefig(os.path.join("_public", f"{repo_name}.png"))
         html += f"<a id='{repo_name}'></a>\n"
         html += f"<center><h2>{repo_name}</span></h2></center>"
