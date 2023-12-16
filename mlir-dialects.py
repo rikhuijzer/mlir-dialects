@@ -131,6 +131,7 @@ def count(update: bool):
         Repo("https://github.com/google/iree", ""),
         Repo("https://github.com/tensorflow/tensorflow", ""),
         Repo("https://github.com/openxla/xla", ""),
+        Repo("https://github.com/openxla/stablehlo", ""),
         Repo("https://github.com/llvm/torch-mlir", ""),
         Repo("https://github.com/openai/triton", ""),
         Repo("https://github.com/Xilinx/mlir-aie", ""),
