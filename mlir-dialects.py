@@ -58,15 +58,15 @@ def glob(search_dir: str) -> str:
 
 def dialect_pattern() -> str:
     """Return the regex pattern to find dialects."""
-    return "[ ]*//[ ]*[^:]+: [ ]*[^%]*%[a-zA-Z0-9_]+ = \"?[^.]*\\."
+    return '[ ]*//[ ]*[^:]+: [ ]*[^%]*%[a-zA-Z0-9_]+ = "?[^.]*\\.'
 
 
 def dialect_pattern_post_process(text: str) -> str:
     dialect_start = text.find("= ")
     last_char = text.find(".", dialect_start)
     dialect = text[dialect_start + 2 : last_char]
-    dialect = dialect.replace('"', '')
-    if " " in dialect:
+    dialect = dialect.replace('"', "")
+    if " " in dialect or "\\" in dialect or "%" in dialect:
         return ""
     return dialect
 
@@ -74,18 +74,27 @@ def dialect_pattern_post_process(text: str) -> str:
 def test_dialect_pattern(text: str, expected: str):
     pattern = dialect_pattern()
     args = ["rg", "--only-matching", pattern]
-    process = subprocess.Popen(args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+    process = subprocess.Popen(
+        args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
+    )
     stdout, _ = process.communicate(input=text)
     dialect = dialect_pattern_post_process(stdout)
     if dialect != expected:
         raise Exception(f"Expected '{expected}' but got '{dialect}'")
 
 
-test_dialect_pattern("  // CHECK: %space_name = test.string_attr_pretty_name attributes", "test")
-test_dialect_pattern("// CHECK: %1 = \"foo.bar\"", "foo")
-test_dialect_pattern("emitc.call_opaque \"f\"() \\{args = baz.bar\\}", "")
-test_dialect_pattern("// CHECK-COUNT-2: vector.mask %{{.*}} { vector.outerproduct %{{.*}}, %{{.*}}, %{{.*}} {kind = #vector.kind<add>} : vector<4xf32>, f32 }", "")
-test_dialect_pattern("// Case 2.b. %b432 = insert [0] == [0,.,.] but internal transpose.", "")
+test_dialect_pattern(
+    "  // CHECK: %space_name = test.string_attr_pretty_name attributes", "test"
+)
+test_dialect_pattern('// CHECK: %1 = "foo.bar"', "foo")
+test_dialect_pattern('emitc.call_opaque "f"() \\{args = baz.bar\\}', "")
+test_dialect_pattern(
+    "// CHECK-COUNT-2: vector.mask %{{.*}} { vector.outerproduct %{{.*}}, %{{.*}}, %{{.*}} {kind = #vector.kind<add>} : vector<4xf32>, f32 }",
+    "",
+)
+test_dialect_pattern(
+    "// Case 2.b. %b432 = insert [0] == [0,.,.] but internal transpose.", ""
+)
 
 
 def find_dialects(search_dir: str):
@@ -104,7 +113,7 @@ def find_dialects(search_dir: str):
 
 
 def count_grep_matches(search_dir: str, dialect: str):
-    pattern = f"= \"?{dialect}\\."
+    pattern = f'= "?{dialect}\\.'
     args = ["rg", "-q", "--stats", pattern, "-g", glob(search_dir), search_dir]
     result = subprocess.run(args, capture_output=True, text=True)
     output = result.stdout
@@ -117,7 +126,6 @@ def count(update: bool):
     print("Counting...")
     repositories = [
         Repo("https://github.com/llvm/llvm-project", "mlir"),
-        Repo("https://github.com/llvm/llvm-project", "flang"),
         Repo("https://github.com/google/iree", ""),
         Repo("https://github.com/tensorflow/tensorflow", ""),
         Repo("https://github.com/openxla/xla", ""),
@@ -139,7 +147,6 @@ def count(update: bool):
             search_dir = os.path.join(local_repo_path, repo.subdir)
         dialects = find_dialects(search_dir)
         print(f"{repo.name()}: dialects: {dialects}")
-        exit(0)
         for dialect in dialects:
             # Only update first few during development.
             if update or i < 4:
@@ -162,12 +169,15 @@ def generate_html(matches: dict[Repo, dict]):
             margin: 0.6em 0;
         }
         pre {
-            background-color: #f0f0f0;
             border: 1px solid #dbdbdb;
             display: block;
             padding: 0.3em;
         }
+        code {
+            padding: 0.1em 0.3em;
+        }
         pre, code {
+            background-color: #f0f0f0;
             font-size: 26px;
             margin-top: 0.6em;
             margin-bottom: 0.6em;
@@ -208,7 +218,7 @@ def generate_html(matches: dict[Repo, dict]):
         <h1 class="center">MLIR Dialect Usage Estimates</h1>
         <div>
         <p>
-        This page shows estimates for the usage of MLIR dialect operations for various repositories:<br>
+        This page estimates the usage of MLIR dialects as lowering targets for the following repositories:<br>
         </p>
         <ul>
         """
@@ -218,15 +228,17 @@ def generate_html(matches: dict[Repo, dict]):
     html += """
         </ul>
         <p>
-        Usage is estimated by counting the number of matches for each dialect operation in the repository.
-        This is based on the assumption that a more important dialect is mentioned more often in test and example files.
-        Specifically, the following ripgrep `rg` command is used:<br>
+        Usage is estimated by counting the number of matches after <code>// CHECK:</code> for each dialect operation in the repository tests.
+        This is based on the assumption that each compiler project lowers to various dialects, that a more important dialect is mentioned more often in test files, and that the downstream repositories use <code>FileCheck</code>.
+        Specifically, the following ripgrep <code>rg</code> command is used:<br>
         </p>
-        <pre>rg '= "?some_dialect.' -g '*.mlir' repo_dir</pre>
+        """
+    html += f'<pre>rg \'= "{dialect_pattern()}" -g "*.mlir" repo_dir</pre>'
+    html += """
         <p>
-        where <code>some_dialect</code> is the dialect operation to count and <code>repo_dir</code> is the repository directory (plus sub directory for some monorepo's).
-        In words, this greps the repository for the string <code>= some_dialect.</code> or <code>= "some_dialect."</code> in all <code>*.mlir</code> files.
-        Finally, zero counts are hidden from the plots.
+        which, for example, matches the following lines:<br>
+        <pre>// CHECK: %0 = arith.constant 1 : index</pre>
+        <pre>  //      FULL-UNROLL:    %cst = arith.constant 1 : index</pre>
         </p>
         <p>
         The source code for this page is available at
@@ -239,14 +251,14 @@ def generate_html(matches: dict[Repo, dict]):
         print(f"Generating plot for: {repo_name}")
         repo_matches = matches[repo]
         sorted_matches = sorted(repo_matches.items(), key=lambda x: x[1], reverse=True)
-        sorted_matches = [x for x in sorted_matches if x[1] > 0]
+        sorted_matches = [x for x in sorted_matches if 10 <= x[1]]
 
         (w, h) = (9, 6)
         fig, ax = plt.subplots(figsize=(w, h))
         fig.subplots_adjust(left=0.06)
         fig.subplots_adjust(right=0.88)
         fig.subplots_adjust(top=0.98)
-        fig.subplots_adjust(bottom=0.18) # triton_nvidia_gpu
+        fig.subplots_adjust(bottom=0.18)  # triton_nvidia_gpu
         labels = [x[0] for x in sorted_matches]
         valus = [x[1] for x in sorted_matches]
         ax.bar(labels, valus)
@@ -303,9 +315,7 @@ def serve():
 
 def main():
     parser = argparse.ArgumentParser(description="Estimate the MLIR dialect usage.")
-    parser.add_argument(
-        "mode", type=str, help="The mode to run. Can be 'count|html|serve'."
-    )
+    parser.add_argument("mode", type=str, help="The mode to run.")
     args = parser.parse_args()
 
     if args.mode == "count":
