@@ -1,4 +1,5 @@
 import argparse
+from dataclasses import dataclass
 import matplotlib.pyplot as plt
 import os
 import subprocess
@@ -8,19 +9,32 @@ from livereload import Server
 from pathlib import Path
 
 
-def repo_name_from_url(git_url: str):
-    """Extract the repository name from a git URL."""
-    repo_name = git_url.split("/")[-1]
+def repo_name_from_url(repo_url: str) -> str:
+    """Extract the repository name from the subdir or the git url."""
+    repo_name = repo_url.split("/")[-1]
     assert not repo_name.endswith(".git")
     return repo_name
 
 
-def clone_or_update_repo(repo_url: str, cache_dir: str, update: bool):
-    """Clone or update a git repository."""
-    repo_name = repo_name_from_url(repo_url)
-    git_url = repo_url + ".git"
+@dataclass(frozen=True)
+class Repo:
+    url: str
+    subdir: str
 
-    local_repo_path = os.path.join(cache_dir, repo_name)
+    def name(self) -> str:
+        if self.subdir != "":
+            return self.subdir
+        else:
+            return repo_name_from_url(self.url)
+
+
+def clone_or_update_repo(repo: Repo, cache_dir: str, update: bool):
+    """Clone or update a git repository."""
+    repo_name = repo.name()
+    git_url = repo.url + ".git"
+
+    repo_dir_name = repo_name_from_url(repo.url)
+    local_repo_path = os.path.join(cache_dir, repo_dir_name)
 
     if os.path.isdir(local_repo_path):
         print(f"Updating repository: {repo_name}")
@@ -35,9 +49,12 @@ def clone_or_update_repo(repo_url: str, cache_dir: str, update: bool):
     return local_repo_path
 
 
-def count_grep_matches(repo_dir: str, dialect: str):
+def count_grep_matches(search_dir: str, dialect: str):
     pattern = f"= {dialect}\\."
-    args = ["rg", "-q", "--stats", pattern, "-g", "*.mlir", repo_dir]
+    glob = "*.mlir"
+    if search_dir.endswith("flang"):
+        glob = "*.fir"
+    args = ["rg", "-q", "--stats", pattern, "-g", glob, search_dir]
     result = subprocess.run(args, capture_output=True, text=True)
     output = result.stdout
     for line in output.split("\n"):
@@ -48,16 +65,18 @@ def count_grep_matches(repo_dir: str, dialect: str):
 def count(update: bool):
     print("Counting...")
     repositories = [
-        "https://github.com/google/iree",
-        "https://github.com/tensorflow/tensorflow",
-        "https://github.com/openxla/xla",
-        "https://github.com/llvm/torch-mlir",
-        "https://github.com/openai/triton",
-        "https://github.com/Xilinx/mlir-aie",
-        "https://github.com/onnx/onnx-mlir",
-        "https://github.com/llvm/Polygeist",
-        "https://github.com/llvm/circt",
-        "https://github.com/microsoft/Accera",
+        Repo("https://github.com/llvm/llvm-project", "mlir"),
+        Repo("https://github.com/llvm/llvm-project", "flang"),
+        Repo("https://github.com/google/iree", ""),
+        Repo("https://github.com/tensorflow/tensorflow", ""),
+        Repo("https://github.com/openxla/xla", ""),
+        Repo("https://github.com/llvm/torch-mlir", ""),
+        Repo("https://github.com/openai/triton", ""),
+        Repo("https://github.com/Xilinx/mlir-aie", ""),
+        Repo("https://github.com/onnx/onnx-mlir", ""),
+        Repo("https://github.com/llvm/Polygeist", ""),
+        Repo("https://github.com/llvm/circt", ""),
+        Repo("https://github.com/microsoft/Accera", ""),
     ]
     dialects = [
         "acc",
@@ -74,6 +93,7 @@ def count(update: bool):
         "complex",
         "dlti",
         "emitc",
+        "fir",  # flang
         "gpu",
         "index",
         "irdl",
@@ -103,24 +123,28 @@ def count(update: bool):
     ]
     matches = {repo: {dialect: 0 for dialect in dialects} for repo in repositories}
     cache_dir = str(Path.home() / ".cache" / "mlir-dialects")
-    for i, repo_url in enumerate(repositories):
-        local_repo_path = clone_or_update_repo(repo_url, cache_dir, update)
+    for i, repo in enumerate(repositories):
+        local_repo_path = clone_or_update_repo(repo, cache_dir, update)
         for dialect in dialects:
             # Only update first few during development.
-            if update or i < 2:
-                current_matches = count_grep_matches(local_repo_path, dialect)
+            if update or i < 3:
+                search_dir = local_repo_path
+                if repo.subdir != "":
+                    search_dir = os.path.join(local_repo_path, repo.subdir)
+                current_matches = count_grep_matches(search_dir, dialect)
                 if current_matches is not None:
-                    matches[repo_url][dialect] = current_matches
+                    matches[repo][dialect] = current_matches
     return matches
 
 
-def generate_html(matches: dict):
+def generate_html(matches: dict[Repo, dict]):
     html = """
         <html>
         <head>
         <style>
         body {
             font-size: 18px;
+            line-height: 1.1;
         }
         div {
             margin: 0.6em 0;
@@ -176,8 +200,8 @@ def generate_html(matches: dict):
         </p>
         <ul>
         """
-    for repo_url in matches:
-        repo_name = repo_name_from_url(repo_url)
+    for repo in matches:
+        repo_name = repo.name()
         html += f"<li><a href='#{repo_name}'>{repo_name}</a></li>\n"
     html += """
         </ul>
@@ -194,10 +218,10 @@ def generate_html(matches: dict):
         </p>
         </div>
         """
-    for repo_url in matches:
-        repo_name = repo_name_from_url(repo_url)
+    for repo in matches:
+        repo_name = repo.name()
         print(f"Generating plot for: {repo_name}")
-        repo_matches = matches[repo_url]
+        repo_matches = matches[repo]
         sorted_matches = sorted(repo_matches.items(), key=lambda x: x[1], reverse=True)
         sorted_matches = [x for x in sorted_matches if x[1] > 0]
 
@@ -207,11 +231,11 @@ def generate_html(matches: dict):
         fig.subplots_adjust(right=0.88)
         fig.subplots_adjust(top=0.98)
         ax.bar([x[0] for x in sorted_matches], [x[1] for x in sorted_matches])
-        plt.xticks(rotation=30, ha="right")
+        plt.xticks(rotation=40, ha="right")
         fig.savefig(os.path.join("_public", f"{repo_name}.png"))
         html += f"<a id='{repo_name}'></a>\n"
         html += f"<center><h2>{repo_name}</span></h2></center>"
-        html += f"<center><a href='{repo_url}'>{repo_url}</a></center>"
+        html += f"<center><a href='{repo.url}'>{repo.url}</a></center>"
         html += f"<center><img src='{repo_name}.png' /></center>\n"
         # html += f"<code>\n{repo_matches}\n</code>\n"
     html += """
