@@ -58,7 +58,7 @@ def glob(search_dir: str) -> str:
 
 def dialect_pattern() -> str:
     """Return the regex pattern to find dialects."""
-    return '[ ]*//[ ]*[^:]+: [ ]*[^%]*%[a-zA-Z0-9_]+ = "?[^.]*\\.'
+    return '[ ]*//[ ]*[^:]+: [ ]*[^%]*%[\\[\\]\\.\\+:a-zA-Z0-9_]+ = "?[^.]*\\.'
 
 
 def dialect_pattern_post_process(text: str) -> str:
@@ -66,13 +66,14 @@ def dialect_pattern_post_process(text: str) -> str:
     last_char = text.find(".", dialect_start)
     dialect = text[dialect_start + 2 : last_char]
     dialect = dialect.replace('"', "")
-    if " " in dialect or "\\" in dialect or "%" in dialect:
+    if any(char in dialect for char in [" ", "\\", "%", "#", "}", "{"]):
         return ""
     return dialect
 
 
 def test_dialect_pattern(text: str, expected: str):
     pattern = dialect_pattern()
+    print(f"Pattern: {pattern}")
     args = ["rg", "--only-matching", pattern]
     process = subprocess.Popen(
         args, stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True
@@ -95,6 +96,7 @@ test_dialect_pattern(
 test_dialect_pattern(
     "// Case 2.b. %b432 = insert [0] == [0,.,.] but internal transpose.", ""
 )
+test_dialect_pattern("// CHECK: %[[VAR:.+]] = arith.constant 1 : index", "arith")
 
 
 def find_dialects(search_dir: str):
@@ -239,6 +241,7 @@ def generate_html(matches: dict[Repo, dict]):
         which, for example, matches the following lines:<br>
         <pre>// CHECK: %0 = arith.constant 1 : index</pre>
         <pre>  //      FULL-UNROLL:    %cst = arith.constant 1 : index</pre>
+        <pre> // CHECK: %[[VAR:.+]] = arith.constant 1 : index</pre>
         </p>
         <p>
         The source code for this page is available at
