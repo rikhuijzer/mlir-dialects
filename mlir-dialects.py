@@ -233,11 +233,11 @@ def generate_html(matches: dict[Repo, dict]):
         Usage is estimated by counting the number of matches after <code>// CHECK:</code> for each dialect operation in the repository tests.
         This is based on the assumption that each compiler project lowers to various dialects, that a more important dialect is mentioned more often in test files, and that the downstream repositories use <code>FileCheck</code>.
         Specifically, the following ripgrep <code>rg</code> command is used:<br>
-        </p>
+        <pre>rg regex -g "*.mlir" repo_dir</pre>
+        where <code>regex</code> is the following regular expression:
         """
-    html += f'<pre>rg \'= "{dialect_pattern()}" -g "*.mlir" repo_dir</pre>'
+    html += f'<pre>{dialect_pattern()}</pre>'
     html += """
-        <p>
         which, for example, matches the following lines:<br>
         <pre>// CHECK: %0 = arith.constant 1 : index</pre>
         <pre>  //      FULL-UNROLL:    %cst = arith.constant 1 : index</pre>
