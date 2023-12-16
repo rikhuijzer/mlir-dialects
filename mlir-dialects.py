@@ -103,12 +103,14 @@ def count(update: bool):
     ]
     matches = {repo: {dialect: 0 for dialect in dialects} for repo in repositories}
     cache_dir = str(Path.home() / ".cache" / "mlir-dialects")
-    for repo_url in repositories:
+    for i, repo_url in enumerate(repositories):
         local_repo_path = clone_or_update_repo(repo_url, cache_dir, update)
         for dialect in dialects:
-            current_matches = count_grep_matches(local_repo_path, dialect)
-            if current_matches is not None:
-                matches[repo_url][dialect] = current_matches
+            # Only update first few during development.
+            if update or i < 2:
+                current_matches = count_grep_matches(local_repo_path, dialect)
+                if current_matches is not None:
+                    matches[repo_url][dialect] = current_matches
     return matches
 
 
@@ -117,20 +119,51 @@ def generate_html(matches: dict):
         <html>
         <head>
         <style>
+        body {
+            font-size: 18px;
+        }
+        div {
+            margin: 0.6em 0;
+        }
+        pre {
+            background-color: #f0f0f0;
+            border: 1px solid #dbdbdb;
+            display: block;
+            padding: 0.3em;
+        }
+        pre, code {
+            font-size: 26px;
+            margin-top: 0.6em;
+            margin-bottom: 0.6em;
+            border-radius: 4px;
+        }
+        h1 {
+            margin: 1.2em 0;
+        }
         .content {
-            max-width: 800px;
-            margin-left: auto;
-            margin-right: auto;
-            margin-top: 50px;
+            width: 100%;
+            margin-left: 8px;
+            margin-right: 5px;
         }
-        .center {
-            text-align: center;
-            margin-left: auto;
-            margin-right: auto;
-        }
-        h2 {
-            margin-top: 90px;
-            margin-bottom: 5px;
+        @media only screen and (min-width: 800px) {
+            pre, code {
+                font-size: 14px;
+            }
+            .content {
+                max-width: 800px;
+                margin-left: auto;
+                margin-right: auto;
+                margin-top: 50px;
+            }
+            .center {
+                text-align: center;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            h2 {
+                margin-top: 90px;
+                margin-bottom: 5px;
+            }
         }
         </style>
         </head>
@@ -138,7 +171,9 @@ def generate_html(matches: dict):
         <div class="content">
         <h1 class="center">MLIR Dialect Usage Estimates</h1>
         <div>
+        <p>
         This page shows estimates for the usage of MLIR dialect operations for various repositories:<br>
+        </p>
         <ul>
         """
     for repo_url in matches:
@@ -146,16 +181,17 @@ def generate_html(matches: dict):
         html += f"<li><a href='#{repo_name}'>{repo_name}</a></li>\n"
     html += """
         </ul>
+        <p>
         Usage is estimated by counting the number of matches for each dialect operation in the repository.
         Specifically, the following ripgrep `rg` command is used:<br>
-        <br>
-        <pre>
-        rg '= some_dialect.' -g '*.mlir' repo_dir
-        </pre>
+        </p>
+        <pre>rg '= some_dialect.' -g '*.mlir' repo_dir</pre>
+        <p>
         where <code>some_dialect</code> is the dialect operation to count.
         Zero counts are hidden from the plots.
         The source code for this page is available at
         <a href="https://github.com/rikhuijzer/mlir-dialects">https://github.com/rikhuijzer/mlir-dialects</a>.
+        </p>
         </div>
         """
     for repo_url in matches:
