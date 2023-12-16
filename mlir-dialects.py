@@ -1,5 +1,4 @@
 import argparse
-from threading import local
 import matplotlib.pyplot as plt
 import os
 import subprocess
@@ -16,7 +15,7 @@ def repo_name_from_url(git_url: str):
     return repo_name
 
 
-def clone_or_update_repo(repo_url: str, cache_dir: str):
+def clone_or_update_repo(repo_url: str, cache_dir: str, update: bool):
     """Clone or update a git repository."""
     repo_name = repo_name_from_url(repo_url)
     git_url = repo_url + ".git"
@@ -25,7 +24,9 @@ def clone_or_update_repo(repo_url: str, cache_dir: str):
 
     if os.path.isdir(local_repo_path):
         print(f"Updating repository: {repo_name}")
-        subprocess.run(["git", "-C", local_repo_path, "pull"], check=True)
+        # Tensorflow updates are very slow, so skip them.
+        if update and repo_name != "tensorflow":
+            subprocess.run(["git", "-C", local_repo_path, "pull"], check=True)
     else:
         print(f"Cloning repository: {repo_name}")
         subprocess.run(
@@ -44,7 +45,7 @@ def count_grep_matches(repo_dir: str, dialect: str):
             return int(line.split()[0])
 
 
-def count():
+def count(update: bool):
     print("Counting...")
     repositories = [
         "https://github.com/google/iree",
@@ -103,7 +104,7 @@ def count():
     matches = {repo: {dialect: 0 for dialect in dialects} for repo in repositories}
     cache_dir = str(Path.home() / ".cache" / "mlir-dialects")
     for repo_url in repositories:
-        local_repo_path = clone_or_update_repo(repo_url, cache_dir)
+        local_repo_path = clone_or_update_repo(repo_url, cache_dir, update)
         for dialect in dialects:
             current_matches = count_grep_matches(local_repo_path, dialect)
             if current_matches is not None:
@@ -185,8 +186,8 @@ def generate_html(matches: dict):
     return html
 
 
-def write_html():
-    matches = count()
+def write_html(update: bool):
+    matches = count(update)
     root_dir = Path(__file__).parent.resolve()
     output_path = os.path.join(root_dir, "_public", "index.html")
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -196,9 +197,13 @@ def write_html():
     print("Wrote HTML to: " + output_path)
 
 
-def spawn_html_write():
+def spawn_html_write(update: bool):
     """Spawn a process to write the HTML."""
-    args = ["python", "mlir-dialects.py", "html"]
+    args = ["python", "mlir-dialects.py"]
+    if update:
+        args += ["html"]
+    else:
+        args += ["html-noupdate"]
     process = subprocess.Popen(args, stdout=subprocess.PIPE)
     if process.stdout is None:
         raise Exception("Failed to spawn process.")
@@ -209,9 +214,11 @@ def spawn_html_write():
 
 def serve():
     server = Server()
-    spawn_html_write()
+    update = True
+    spawn_html_write(update)
+    spawn_html_no_update = lambda: spawn_html_write(False)
     # Going via a subprocess to run the latest version of the code.
-    server.watch("*.py", spawn_html_write)
+    server.watch("*.py", spawn_html_no_update)
     server.serve(root="_public")
 
 
@@ -223,10 +230,14 @@ def main():
     args = parser.parse_args()
 
     if args.mode == "count":
-        matches = count()
+        matches = count(update=True)
         print(matches)
     elif args.mode == "html":
-        write_html()
+        update = True
+        write_html(update)
+    elif args.mode == "html-noupdate":
+        update = False
+        write_html(update)
     elif args.mode == "serve":
         serve()
     else:
