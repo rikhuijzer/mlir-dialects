@@ -1,0 +1,124 @@
+
+        <html>
+        <head>
+        <style>
+        body {
+            font-size: 18px;
+            line-height: 1.3;
+        }
+        div {
+            margin: 0.6em 0;
+        }
+        pre {
+            border: 1px solid #dbdbdb;
+            display: block;
+            padding: 0.3em;
+        }
+        code {
+            padding: 0.1em 0.3em;
+        }
+        pre, code {
+            background-color: #f0f0f0;
+            font-size: 26px;
+            margin-top: 0.6em;
+            margin-bottom: 0.6em;
+            border-radius: 4px;
+        }
+        h1 {
+            margin: 1.2em 0;
+        }
+        .content {
+            width: 100%;
+            margin-left: 8px;
+            margin-right: 5px;
+        }
+        @media only screen and (min-width: 800px) {
+            pre, code {
+                font-size: 14px;
+            }
+            .content {
+                max-width: 800px;
+                margin-left: auto;
+                margin-right: auto;
+                margin-top: 50px;
+            }
+            .center {
+                text-align: center;
+                margin-left: auto;
+                margin-right: auto;
+            }
+            h2 {
+                margin-top: 90px;
+                margin-bottom: 5px;
+            }
+        }
+        </style>
+        </head>
+        <body>
+        <div class="content">
+        <h1 class="center">MLIR Dialect Usage Estimates</h1>
+        <div>
+        <p>
+        This page estimates the usage of MLIR dialects as lowering targets for the following repositories:<br>
+        </p>
+        <ul>
+        <li><a href='#mlir'>mlir</a></li>
+<li><a href='#iree'>iree</a></li>
+<li><a href='#tensorflow'>tensorflow</a></li>
+<li><a href='#xla'>xla</a></li>
+<li><a href='#stablehlo'>stablehlo</a></li>
+<li><a href='#torch-mlir'>torch-mlir</a></li>
+<li><a href='#triton'>triton</a></li>
+<li><a href='#mlir-aie'>mlir-aie</a></li>
+<li><a href='#onnx-mlir'>onnx-mlir</a></li>
+<li><a href='#Polygeist'>Polygeist</a></li>
+<li><a href='#circt'>circt</a></li>
+<li><a href='#Accera'>Accera</a></li>
+
+        </ul>
+        <p>
+        Usage is estimated by counting the number of matches after <code>// CHECK:</code> for each dialect operation in the repository tests.
+        This is based on the assumption that each compiler project lowers to various dialects, that a more important dialect is mentioned more often in test files, and that the downstream repositories use <code>FileCheck</code>.
+        Specifically, the following ripgrep <code>rg</code> command is used:<br>
+        <pre>rg regex -g "*.mlir" repo_dir</pre>
+        where <code>regex</code> is the following regular expression:
+        <pre>[ ]*//[ ]*[^:]+: [ ]*[^%]*%[\[\]\.\+:a-zA-Z0-9_]+ = "?[^.]*\.</pre>
+        which, for example, matches the following lines:<br>
+        <pre>// CHECK: %0 = arith.constant 1 : index</pre>
+        <pre>  //      FULL-UNROLL:    %cst = arith.constant 1 : index</pre>
+        <pre> // CHECK: %[[VAR:.+]] = arith.constant 1 : index</pre>
+        </p>
+        <p>
+        The source code for this page is available at
+        <a href="https://github.com/rikhuijzer/mlir-dialects">https://github.com/rikhuijzer/mlir-dialects</a>.
+        </p>
+        </div>
+        <a id='mlir'></a>
+<center><h2>mlir</span></h2></center><center><a href='https://github.com/llvm/llvm-project'>https://github.com/llvm/llvm-project</a></center><center><img src='mlir.png' /></center>
+<a id='iree'></a>
+<center><h2>iree</span></h2></center><center><a href='https://github.com/google/iree'>https://github.com/google/iree</a></center><center><img src='iree.png' /></center>
+<a id='tensorflow'></a>
+<center><h2>tensorflow</span></h2></center><center><a href='https://github.com/tensorflow/tensorflow'>https://github.com/tensorflow/tensorflow</a></center><center><img src='tensorflow.png' /></center>
+<a id='xla'></a>
+<center><h2>xla</span></h2></center><center><a href='https://github.com/openxla/xla'>https://github.com/openxla/xla</a></center><center><img src='xla.png' /></center>
+<a id='stablehlo'></a>
+<center><h2>stablehlo</span></h2></center><center><a href='https://github.com/openxla/stablehlo'>https://github.com/openxla/stablehlo</a></center><center><img src='stablehlo.png' /></center>
+<a id='torch-mlir'></a>
+<center><h2>torch-mlir</span></h2></center><center><a href='https://github.com/llvm/torch-mlir'>https://github.com/llvm/torch-mlir</a></center><center><img src='torch-mlir.png' /></center>
+<a id='triton'></a>
+<center><h2>triton</span></h2></center><center><a href='https://github.com/openai/triton'>https://github.com/openai/triton</a></center><center><img src='triton.png' /></center>
+<a id='mlir-aie'></a>
+<center><h2>mlir-aie</span></h2></center><center><a href='https://github.com/Xilinx/mlir-aie'>https://github.com/Xilinx/mlir-aie</a></center><center><img src='mlir-aie.png' /></center>
+<a id='onnx-mlir'></a>
+<center><h2>onnx-mlir</span></h2></center><center><a href='https://github.com/onnx/onnx-mlir'>https://github.com/onnx/onnx-mlir</a></center><center><img src='onnx-mlir.png' /></center>
+<a id='Polygeist'></a>
+<center><h2>Polygeist</span></h2></center><center><a href='https://github.com/llvm/Polygeist'>https://github.com/llvm/Polygeist</a></center><center><img src='Polygeist.png' /></center>
+<a id='circt'></a>
+<center><h2>circt</span></h2></center><center><a href='https://github.com/llvm/circt'>https://github.com/llvm/circt</a></center><center><img src='circt.png' /></center>
+<a id='Accera'></a>
+<center><h2>Accera</span></h2></center><center><a href='https://github.com/microsoft/Accera'>https://github.com/microsoft/Accera</a></center><center><img src='Accera.png' /></center>
+
+        </div>
+        </body>
+        </html>
+        
