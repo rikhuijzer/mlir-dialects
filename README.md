@@ -1,6 +1,6 @@
 # mlir-dialects
 
-Estimates for the usage of MLIR dialects for various repositories, see <https://mlir-dialects.huijzer.xyz/>.
+Estimates for the usage of MLIR dialects for various repositories, see <https://rikhuijzer.github.io/mlir-dialects/>.
 
 ## Setup
 
