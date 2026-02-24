@@ -2,8 +2,8 @@ name: CI
 
 on:
   schedule:
-    # Every 22th day of the month at 03:30.
-    - cron: '30 03 22 * *'
+    # Every 22th day of the month at 03:40.
+    - cron: '40 03 22 * *'
   push:
     branches:
       - main
