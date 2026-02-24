@@ -35,8 +35,6 @@ jobs:
 
       - run: pipenv run python mlir-dialects.py html
 
-      - run: echo "mlir-dialects.huijzer.xyz" > _public/CNAME
-
       - uses: JamesIves/github-pages-deploy-action@v4
         if: ${{ github.ref == 'refs/heads/main' }}
         with:
